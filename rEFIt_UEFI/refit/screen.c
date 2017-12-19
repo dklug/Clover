@@ -274,10 +274,10 @@ BOOLEAN ReadAllKeyStrokes(VOID)
 {
     BOOLEAN       GotKeyStrokes;
     EFI_STATUS    Status;
-    EFI_INPUT_KEY key;
+    //EFI_INPUT_KEY key;
     
     GotKeyStrokes = FALSE;
-    Status=EFI_ERROR;
+    Status=6; //EFI_NOT_READY
     //This line results in errors on HP Spectre x360 (Also possibly Envy x360)
     //Status = gST->ConIn->ReadKeyStroke (gST->ConIn, &key);
     if (Status == EFI_SUCCESS) {
