@@ -650,7 +650,7 @@ VOID GetCPUProperties (VOID)
   
   else if(gCPUStructure.Vendor == CPU_VENDOR_AMD ) {
     
-    UINT64 cpudid_zen = 0x17;
+    UINT32 cpudid_zen = 0x17;
     INTN  currcoef = 0;
     INTN  cpuMultN2 = 0;
     INTN  currdiv = 0;
@@ -712,7 +712,7 @@ VOID GetCPUProperties (VOID)
         
         
         msr_min = AsmReadMsr64(K10_COFVID_LIMIT);
-        cpudid_zen = bitfield(msr_min, 6 , 4);
+        cpudid_zen = (UINT32)bitfield(msr_min, 6 , 4);
         msr_min = AsmReadMsr64(K10_PSTATE_STATUS + cpudid_zen);
         gCPUStructure.MinRatio = 5 * (UINT32)DivU64(((msr_min & 0x3f) + 0x08), LShiftU64(1ULL, ((RShiftU64(msr_min, 6) & 0x7))));
         
@@ -948,7 +948,7 @@ VOID GetCPUProperties (VOID)
         
         cpuMultN2 = (cofvid & (UINT64)bit(0));
         currdiv = cpuMultN2;
-        cpudid_zen = RShiftU64(cofvid, 8) & 0xff; //for mult
+        cpudid_zen = (UINT32)(RShiftU64(cofvid, 8) & 0xff); //for mult
         
         /////// Addon END ///////
       }
@@ -1370,6 +1370,8 @@ UINT16 GetAdvancedCpuType ()
               return 0xD05;
             if (AsciiStrStr(gCPUStructure.BrandString, "Core(TM) m7"))
               return 0xE05;
+            if (AsciiStrStr(gCPUStructure.BrandString, "Xeon"))
+              return 0xF01;
             if (gCPUStructure.Cores <= 2) {
               return 0x605;
             }
@@ -1435,13 +1437,10 @@ MACHINE_TYPES GetDefaultModel()
         break;
       case CPU_MODEL_HASWELL_ULT:
       case CPU_MODEL_CRYSTALWELL:
-      case CPU_MODEL_HASWELL_U5:
       case CPU_MODEL_BROADWELL_HQ:
-      case CPU_MODEL_SKYLAKE_U:
-      case CPU_MODEL_KABYLAKE1:
         DefaultType = MacBookPro111;
         break;
-/*      case CPU_MODEL_HASWELL_U5:               // 5th generation Broadwell
+      case CPU_MODEL_HASWELL_U5:  // Broadwell Mobile
         if(AsciiStrStr(gCPUStructure.BrandString, "M")) {
            DefaultType = MacBook81;
            break;
@@ -1461,14 +1460,20 @@ MACHINE_TYPES GetDefaultModel()
            break;
         }
         DefaultType = MacBookPro141;
-        break;;
-*/        
+        break;
+
+      case CPU_MODEL_SKYLAKE_D:
+        DefaultType = MacBookPro133;
+        break;
+      case CPU_MODEL_KABYLAKE2:
+        DefaultType = MacBookPro143;
+        break;
       default:
         if ((gGraphics[0].Vendor == Nvidia) ||
             (gGraphics[1].Vendor == Nvidia)) {
           DefaultType = MacBookPro51;
         } else
-          DefaultType = MacBook52;
+          DefaultType = MacBookPro83;
         break;
     }
   } else {
@@ -1549,9 +1554,15 @@ MACHINE_TYPES GetDefaultModel()
         break;
       case CPU_MODEL_SKYLAKE_D:  
       case CPU_MODEL_SKYLAKE_S:
+        DefaultType = iMac171;
+        break;
       case CPU_MODEL_KABYLAKE1:
       case CPU_MODEL_KABYLAKE2:
-        DefaultType = iMac171;
+        if (AsciiStrStr(gCPUStructure.BrandString, "i5")) {
+          DefaultType = iMac182;
+          break;
+        }
+        DefaultType = iMac183;
         break;
       case CPU_MODEL_HASWELL:
       case CPU_MODEL_HASWELL_E:

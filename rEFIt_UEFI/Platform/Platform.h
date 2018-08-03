@@ -96,6 +96,8 @@ Headers collection for procedures
 
 #define MAX_NUM_DEVICES  64
 
+#define HEIGHT_2K 1100
+
 /* Decimal powers: */
 #define kilo (1000ULL)
 #define Mega (kilo * kilo)
@@ -667,6 +669,8 @@ typedef struct _DRIVERS_FLAGS {
   BOOLEAN MemFixLoaded;
   BOOLEAN AptioFixLoaded;
   BOOLEAN AptioFix2Loaded;
+  BOOLEAN AptioFix3Loaded;
+  BOOLEAN AptioMemFixLoaded;
   BOOLEAN HFSLoaded;
   BOOLEAN APFSLoaded;
 } DRIVERS_FLAGS;
@@ -723,13 +727,21 @@ typedef struct {
 typedef struct DEV_PROPERTY DEV_PROPERTY; //yyyy
 struct DEV_PROPERTY {
   UINT32        Device;
+  EFI_DEVICE_PATH_PROTOCOL* DevicePath;
   CHAR8         *Key;
   CHAR8         *Value;
   UINTN         ValueLen;
-  DEV_PROPERTY  *Next;
+  DEV_PROPERTY  *Next;   //next device or next property
+  DEV_PROPERTY  *Child;  // property list of the device
   CHAR8         *Label;
   INPUT_ITEM    MenuItem;
   TAG_TYPE      ValueType;
+};
+
+typedef struct ACPI_NAME_LIST ACPI_NAME_LIST;
+struct ACPI_NAME_LIST {
+	ACPI_NAME_LIST *Next;
+	CHAR8          *Name;
 };
 
 
@@ -894,7 +906,7 @@ typedef struct {
   CHAR8                   Language[16];
   CHAR8                   BootArgs[256];
   CHAR16                  CustomUuid[40];
-  
+
   CHAR16                  *DefaultVolume;
   CHAR16                  *DefaultLoader;
 //Boot
@@ -903,7 +915,7 @@ typedef struct {
 //Monitor
   BOOLEAN                 IntelMaxBacklight;
   UINT16                  VendorEDID;
-  UINT16                  ProductEDID;  
+  UINT16                  ProductEDID;
   UINT16                  BacklightLevel;
   BOOLEAN                 BacklightLevelConfig;
   BOOLEAN                 IntelBacklight;
@@ -941,6 +953,7 @@ typedef struct {
   BOOLEAN                 EnableC6;
   BOOLEAN                 EnableISS;
   BOOLEAN                 SlpSmiEnable;
+  BOOLEAN                 FixHeaders;
   UINT16                  C3Latency;
   BOOLEAN                 smartUPS;
   BOOLEAN                 PatchNMI;
@@ -953,7 +966,10 @@ typedef struct {
   UINT8                   MaxMultiplier;
   UINT8                   PluginType;
 //  BOOLEAN                 DropMCFG;
+  BOOLEAN                 FixMCFG;
 
+  UINT32				DeviceRenameCount;
+  ACPI_NAME_LIST		*DeviceRename;
   //Injections
   BOOLEAN                 StringInjector;
   BOOLEAN                 InjectSystemID;
@@ -972,7 +988,7 @@ typedef struct {
   UINT32                  FakeIMEI;  //106
 
   //Graphics
-  UINT16                  PCIRootUID;
+//  UINT16                  PCIRootUID;
   BOOLEAN                 GraphicsInjector;
   BOOLEAN                 InjectIntel;
   BOOLEAN                 InjectATI;
@@ -1026,6 +1042,9 @@ typedef struct {
   BOOLEAN                 HighCurrent;
   BOOLEAN                 NameEH00;
   BOOLEAN                 NameXH00;
+  
+  BOOLEAN                 LANInjection;
+  BOOLEAN                 HDMIInjection;
 
   // LegacyBoot
   CHAR16                  LegacyBoot[32];
@@ -1069,7 +1088,7 @@ typedef struct {
   BOOLEAN                 NeverDoRecovery;
 
   // Multi-config
-  CHAR16  *ConfigName;
+  CHAR16  ConfigName[30];
   CHAR16  *MainConfigName;
 
   //Drivers
@@ -1100,7 +1119,6 @@ typedef struct {
   BOOLEAN                 UseIntelHDMI;
   UINT8                   AFGLowPowerState;
 
-
   // Table dropping
   ACPI_DROP_TABLE         *ACPIDropTables;
 
@@ -1120,7 +1138,7 @@ typedef struct {
 
   //BlackListed kexts
   CHAR16                  BlockKexts[64];
-    
+
   // Disable inject kexts
 //  UINT32                  DisableInjectKextCount;
 //  CHAR16                  **DisabledInjectKext;
@@ -1136,11 +1154,11 @@ typedef struct {
   CHAR8                   **PatchDsdtLabel; //yyyy
   CHAR8                   **PatchDsdtTgt;
   INPUT_ITEM              *PatchDsdtMenuItem;
-  
+
   //other
   UINT32                  IntelMaxValue;
 
-  // boot.efi 
+  // boot.efi
   UINT32 OptionsBits;
   UINT32 FlagsBits;
   UINT32 UIScale;
@@ -1297,6 +1315,7 @@ typedef enum {
   iMac181,
   iMac182,
   iMac183,
+  iMacPro11,
   MacPro11,
   MacPro21,
   MacPro31,
@@ -1508,6 +1527,7 @@ extern BOOLEAN                        DoHibernateWake;
 extern UINTN 						  APFSUUIDBankCounter;
 extern UINT8 						 *APFSUUIDBank;
 extern CHAR16						 **SystemPlists;
+extern CHAR16                        **InstallPlists;
 extern CHAR16						 **RecoveryPlists;
 extern EFI_GUID                        APFSSignature;
 extern BOOLEAN                         APFSSupport;
@@ -1578,6 +1598,7 @@ extern ACTION                          gAction;
 extern UINTN                           gItemID;
 extern INTN                            OldChosenTheme;
 extern INTN                            OldChosenConfig;
+extern INTN                            OldChosenDsdt;
 
 //CHAR8*   orgBiosDsdt;
 extern UINT64                          BiosDsdt;
@@ -1618,8 +1639,11 @@ FixBiosDsdt (
   );
 
 VOID
+RenameDevices(UINT8* table);
+
+VOID
 GetBiosRegions (
-  EFI_ACPI_2_0_FIXED_ACPI_DESCRIPTION_TABLE *fadt
+  UINT8  *buffer
   );
 
 INT32
@@ -1631,13 +1655,13 @@ FindBin (
   );
 
 EFI_STATUS
-MouseBirth ();
+MouseBirth (VOID);
 
 VOID
-KillMouse ();
+KillMouse (VOID);
 
 VOID
-HidePointer ();
+HidePointer (VOID);
 
 EFI_STATUS
 WaitForInputEventPoll (
@@ -1646,7 +1670,7 @@ WaitForInputEventPoll (
   );
 
 VOID
-InitBooterLog ();
+InitBooterLog (VOID);
 
 EFI_STATUS
 SetupBooterLog (
@@ -1683,7 +1707,7 @@ MACHINE_TYPES GetModelFromString (
   );
 
 VOID
-GetDefaultSettings();
+GetDefaultSettings(VOID);
 
 VOID
 FillInputs (
@@ -1691,7 +1715,7 @@ FillInputs (
   );
 
 VOID
-ApplyInputs ();
+ApplyInputs (VOID);
 
 
 BOOLEAN
@@ -1714,19 +1738,19 @@ InitBootScreen (
   );
 
 EFI_STATUS
-InitializeConsoleSim ();
+InitializeConsoleSim (VOID);
 
 EFI_STATUS
-GuiEventsInitialize ();
+GuiEventsInitialize (VOID);
 
 EFI_STATUS
-InitializeEdidOverride ();
+InitializeEdidOverride (VOID);
 
 UINT8*
-getCurrentEdid ();
+getCurrentEdid (VOID);
 
 EFI_STATUS
-GetEdidDiscovered ();
+GetEdidDiscovered (VOID);
 
 //Settings.c
 UINT32
@@ -1736,16 +1760,16 @@ GetCrc32 (
   );
 
 VOID
-GetCPUProperties ();
+GetCPUProperties (VOID);
 
 VOID
-GetDevices();
+GetDevices(VOID);
 
 MACHINE_TYPES
-GetDefaultModel ();
+GetDefaultModel (VOID);
 
 UINT16
-GetAdvancedCpuType ();
+GetAdvancedCpuType (VOID);
 
 CHAR8
 *GetOSVersion (
@@ -1786,7 +1810,7 @@ SetFSInjection (
   );
 
 CHAR16*
-GetOtherKextsDir ();
+GetOtherKextsDir (VOID);
 
 CHAR16*
 GetOSVersionKextsDir (
@@ -1846,17 +1870,17 @@ DeleteNvramVariable (
   );
 
 VOID
-ResetNvram ();
+ResetNvram (VOID);
 
 EFI_STATUS
-ResetEmuNvram ();
+ResetEmuNvram (VOID);
 
 EFI_STATUS
-ResetNativeNvram ();
+ResetNativeNvram (VOID);
 ;
 
 EFI_STATUS
-GetEfiBootDeviceFromNvram ();
+GetEfiBootDeviceFromNvram (VOID);
 
 EFI_GUID
 *FindGPTPartitionGuidInDevicePath (
@@ -1864,15 +1888,15 @@ EFI_GUID
   );
 
 VOID
-PutNvramPlistToRtVars ();
+PutNvramPlistToRtVars (VOID);
 
 VOID
 GetSmcKeys(BOOLEAN WriteToSMC);
 
-//VOID DumpSmcKeys();
+//VOID DumpSmcKeys(VOID);
 
 VOID
-GetMacAddress();
+GetMacAddress(VOID);
 
 INTN
 FindStartupDiskVolume (
@@ -1886,7 +1910,7 @@ SetStartupDiskVolume (
   );
 
 VOID
-RemoveStartupDiskVolume ();
+RemoveStartupDiskVolume (VOID);
 
 UINT64
 GetEfiTimeInMs (IN EFI_TIME *T);
@@ -1910,7 +1934,7 @@ EFIAPI
 SetupDataForOSX (BOOLEAN Hibernate);
 
 EFI_STATUS
-SetPrivateVarProto ();
+SetPrivateVarProto (VOID);
 
 VOID
 SetDevices (
@@ -1918,7 +1942,7 @@ SetDevices (
   );
 
 VOID
-ScanSPD ();
+ScanSPD (VOID);
 
 BOOLEAN
 setup_ati_devprop (
@@ -1968,6 +1992,8 @@ CHAR8
   UINT32 subsys_id,
   CARDLIST * nvcard
   );
+
+UINT32 PciAddrFromDevicePath(EFI_DEVICE_PATH_PROTOCOL* DevicePath);
 
 VOID
 FillCardList(
@@ -2025,10 +2051,10 @@ SaveOemDsdt (
   );
 
 VOID
-SaveOemTables ();
+SaveOemTables (VOID);
 
 EFI_ACPI_2_0_FIXED_ACPI_DESCRIPTION_TABLE
-*GetFadt ();
+*GetFadt (VOID);
 
 UINT32
 FixAny (
@@ -2041,7 +2067,7 @@ FixAny (
   );
 
 VOID
-GetAcpiTablesList ();
+GetAcpiTablesList (VOID);
 
 EFI_STATUS
 EventsInitialize (
@@ -2079,7 +2105,7 @@ bootLegacyBiosDefault (
   );
 
 VOID
-DumpBiosMemoryMap ();
+DumpBiosMemoryMap (VOID);
 
 CHAR8*
 XMLDecode (
@@ -2148,7 +2174,7 @@ GetPropertyInteger (
   );
 
 EFI_STATUS
-SaveSettings ();
+SaveSettings (VOID);
 
 UINTN
 iStrLen(
@@ -2157,16 +2183,16 @@ iStrLen(
   );
 
 EFI_STATUS
-PrepatchSmbios ();
+PrepatchSmbios (VOID);
 
 VOID
-PatchSmbios ();
+PatchSmbios (VOID);
 
 VOID
-FinalizeSmbios ();
+FinalizeSmbios (VOID);
 
 EFI_STATUS
-FixOwnership ();
+FixOwnership (VOID);
 
 UINT8
 *Base64Decode (
@@ -2180,7 +2206,7 @@ TimeDiff(
   UINT64 t1);
 
 VOID
-SetCPUProperties ();
+SetCPUProperties (VOID);
 
 // Settings.c
 // Micky1979: Next five functions (+ needed struct) are to split a string like "10.10.5,10.7,10.11.6,10.8.x"
@@ -2324,7 +2350,7 @@ VOID
 SetBootCurrent(REFIT_MENU_ENTRY *LoadedEntry);
 
 VOID
-InitKextList();
+InitKextList(VOID);
 
 //
 // PlatformDriverOverride.c

@@ -1100,9 +1100,6 @@ TimerHandler (
   }
 }
 
-#pragma GCC push_options
-#pragma GCC optimize("O2")
-
 EFI_STATUS
 EFIAPI
 InitializeCpu (
@@ -1212,8 +1209,6 @@ Returns:
 //  ASSERT_EFI_ERROR (Status);
   return Status;
 }
-
-#pragma GCC pop_options
 
 VOID
 InitializeBiosIntCaller (

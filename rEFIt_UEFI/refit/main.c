@@ -80,13 +80,20 @@ BOOLEAN                 APFSSupport     = FALSE;
 //extern EFI_DXE_SERVICES*       gDS;
 EFI_RUNTIME_SERVICES*   gRS;
 
-DRIVERS_FLAGS gDriversFlags = {FALSE, FALSE, FALSE, FALSE, FALSE, FALSE};  //the initializer is not needed for global variables
+DRIVERS_FLAGS gDriversFlags;  //the initializer is not needed for global variables
 
 EMU_VARIABLE_CONTROL_PROTOCOL *gEmuVariableControl = NULL;
 
 extern VOID HelpRefit(VOID);
 extern VOID AboutRefit(VOID);
 extern BOOLEAN BooterPatch(IN UINT8 *BooterData, IN UINT64 BooterSize, LOADER_ENTRY *Entry);
+extern UINTN            ThemesNum;
+extern CHAR16           *ThemesList[];
+extern UINTN            ConfigsNum;
+extern CHAR16           *ConfigsList[];
+extern UINTN            DsdtsNum;
+extern CHAR16           *DsdtsList[];
+
 
 static EFI_STATUS LoadEFIImageList(IN EFI_DEVICE_PATH **DevicePaths,
                                     IN CHAR16 *ImageTitle,
@@ -495,6 +502,7 @@ static VOID StartLoader(IN LOADER_ENTRY *Entry)
   EFI_LOADED_IMAGE        *LoadedImage = NULL;
   CHAR8                   *InstallerVersion;
   TagPtr                  dict = NULL;
+  UINTN                   i;
 
 //  DBG("StartLoader() start\n");
   DbgHeader("StartLoader");
@@ -520,18 +528,39 @@ static VOID StartLoader(IN LOADER_ENTRY *Entry)
       DBG(" - [!] LoadUserSettings failed: %r\n", Status);
     }
   }
-
-  DBG("Finally: ExternalClock=%ldMHz BusSpeed=%ldkHz CPUFreq=%ldMHz", 
-  				DivU64x32(gCPUStructure.ExternalClock, kilo), 
-  				DivU64x32(gCPUStructure.FSBFrequency, kilo), 
-				gCPUStructure.MaxSpeed);
-				if (gSettings.QPI) {			
-				  DBG(" QPI: hw.busfrequency=%ldHz\n", MultU64x32(gSettings.QPI, Mega));
-				} else {
-				  // to match the value of hw.busfrequency in the terminal
-				  DBG(" PIS: hw.busfrequency=%ldHz\n", MultU64x32(LShiftU64(DivU64x32(gCPUStructure.ExternalClock, kilo), 2), Mega));
-				}
-
+  
+  DBG("Finally: ExternalClock=%ldMHz BusSpeed=%ldkHz CPUFreq=%ldMHz",
+  				DivU64x32(gCPUStructure.ExternalClock + kilo - 1, kilo),
+  				DivU64x32(gCPUStructure.FSBFrequency + kilo - 1, kilo),
+          gCPUStructure.MaxSpeed);
+  if (gSettings.QPI) {
+    DBG(" QPI: hw.busfrequency=%ldHz\n", MultU64x32(gSettings.QPI, Mega));
+  } else {
+    // to match the value of hw.busfrequency in the terminal
+    DBG(" PIS: hw.busfrequency=%ldHz\n", MultU64x32(LShiftU64(DivU64x32(gCPUStructure.ExternalClock + kilo - 1, kilo), 2), Mega));
+  }
+  
+  //Free memory
+  for (i = 0; i < ThemesNum; i++) {
+    if (ThemesList[i]) {
+      FreePool(ThemesList[i]);
+      ThemesList[i] = NULL;
+    }
+  }
+  for (i = 0; i < ConfigsNum; i++) {
+    if (ConfigsList[i]) {
+      FreePool(ConfigsList[i]);
+      ConfigsList[i] = NULL;
+    }
+  }
+  for (i = 0; i < DsdtsNum; i++) {
+    if (DsdtsList[i]) {
+      FreePool(DsdtsList[i]);
+      DsdtsList[i] = NULL;
+    }
+  }
+  FreeMenu(&OptionMenu);
+  
   //DumpKernelAndKextPatches(Entry->KernelAndKextPatches);
 
   // Load image into memory (will be started later)
@@ -587,7 +616,8 @@ static VOID StartLoader(IN LOADER_ENTRY *Entry)
               AsciiStrnCmp(InstallerVersion, "10.10", 5) &&
               AsciiStrnCmp(InstallerVersion, "10.11", 5) &&
               AsciiStrnCmp(InstallerVersion, "10.12", 5) &&
-              AsciiStrnCmp(InstallerVersion, "10.13", 5)) {   //xxx
+              AsciiStrnCmp(InstallerVersion, "10.13", 5) &&
+              AsciiStrnCmp(InstallerVersion, "10.14", 5)) {   //xxx
             InstallerVersion = NULL; // flag known version was not found
           }
           if (InstallerVersion != NULL) { // known version was found in image
@@ -615,7 +645,7 @@ static VOID StartLoader(IN LOADER_ENTRY *Entry)
 
     if (Entry->OSVersion && (AsciiOSVersionToUint64(Entry->OSVersion) >= AsciiOSVersionToUint64("10.11"))) {
       if (OSFLAG_ISSET(Entry->Flags, OSFLAG_NOSIP)) {
-        gSettings.CsrActiveConfig = (UINT32)0x7F;
+        gSettings.CsrActiveConfig = (UINT32)0x37F;
         gSettings.BooterConfig = 0x28;
       }
       ReadSIPCfg();
@@ -786,6 +816,27 @@ static VOID StartLoader(IN LOADER_ENTRY *Entry)
     // to reboot into another volume
     RemoveStartupDiskVolume();
   }
+/*
+  {
+    //    UINT32                    machineSignature    = 0;
+    EFI_ACPI_2_0_FIXED_ACPI_DESCRIPTION_TABLE     *FadtPointer = NULL;
+    EFI_ACPI_4_0_FIRMWARE_ACPI_CONTROL_STRUCTURE  *Facs = NULL;
+
+    //    DBG("---dump hibernations data---\n");
+    FadtPointer = GetFadt();
+    if (FadtPointer != NULL) {
+      Facs = (EFI_ACPI_4_0_FIRMWARE_ACPI_CONTROL_STRUCTURE*)(UINTN)(FadtPointer->FirmwareCtrl);
+
+      DBG("  Firmware wake address=%08lx\n", Facs->FirmwareWakingVector);
+      DBG("  Firmware wake 64 addr=%16llx\n",  Facs->XFirmwareWakingVector);
+      DBG("  Hardware signature   =%08lx\n", Facs->HardwareSignature);
+      DBG("  GlobalLock           =%08lx\n", Facs->GlobalLock);
+      DBG("  Flags                =%08lx\n", Facs->Flags);
+      DBG(" HS at offset 0x%08x\n", OFFSET_OF(EFI_ACPI_4_0_FIRMWARE_ACPI_CONTROL_STRUCTURE, HardwareSignature));
+      //   machineSignature = Facs->HardwareSignature;
+    }
+  }
+*/
 
 //    DBG("BeginExternalScreen\n");
   BeginExternalScreen(OSFLAG_ISSET(Entry->Flags, OSFLAG_USEGRAPHICS), L"Booting OS");
@@ -830,6 +881,8 @@ static VOID StartLoader(IN LOADER_ENTRY *Entry)
     }
     SetupBooterLog(!DoHibernateWake);
   }
+
+
   
   DBG("Closing log\n");
   if (SavePreBootLog) {
@@ -1029,17 +1082,48 @@ static VOID ScanDriverDir(IN CHAR16 *Path, OUT EFI_HANDLE **DriversToConnect, OU
   EFI_HANDLE              *DriversArr;
   INTN                    i;
   BOOLEAN                 Skip;
+  UINT8                   AptioBlessed;
+  STATIC CHAR16 CONST * CONST AptioNames[] = {
+    L"AptioMemoryFix",
+    L"AptioFix3Drv",
+    L"AptioFix2Drv",
+    L"AptioFixDrv",
+    L"LowMemFix"
+  };
+  STATIC UINT8 CONST AptioIndices[] = {
+    OFFSET_OF(DRIVERS_FLAGS, AptioMemFixLoaded),
+    OFFSET_OF(DRIVERS_FLAGS, AptioFix3Loaded),
+    OFFSET_OF(DRIVERS_FLAGS, AptioFix2Loaded),
+    OFFSET_OF(DRIVERS_FLAGS, AptioFixLoaded),
+    OFFSET_OF(DRIVERS_FLAGS, MemFixLoaded)
+  };
 
   DriversArrSize = 0;
   DriversArrNum = 0;
   DriversArr = NULL;
 
+//only one driver with highest priority will obtain status "Loaded"
+  DirIterOpen(SelfRootDir, Path, &DirIter);
+#define BOOLEAN_AT_INDEX(k) (*(BOOLEAN*)((UINTN)&gDriversFlags + AptioIndices[(k)]))
+  for (i = 0; i != ARRAY_SIZE(AptioIndices); ++i)
+    BOOLEAN_AT_INDEX(i) = FALSE;
+  AptioBlessed = (UINT8) ARRAY_SIZE(AptioNames);
+  while (DirIterNext(&DirIter, 2, L"*.efi", &DirEntry)) {
+    for (i = 0; i != ARRAY_SIZE(AptioNames); ++i)
+      if (StrStr(DirEntry->FileName, AptioNames[i]) != NULL)
+        break;
+    if (((UINT8) i) >= AptioBlessed)
+      continue;
+    AptioBlessed = (UINT8) i;
+    if (!i)
+      break;
+  }
+  DirIterClose(&DirIter);
+
   // look through contents of the directory
   DirIterOpen(SelfRootDir, Path, &DirIter);
-  while (DirIterNext(&DirIter, 2, L"*.EFI", &DirEntry)) {
+  while (DirIterNext(&DirIter, 2, L"*.efi", &DirEntry)) {
     Skip = (DirEntry->FileName[0] == L'.');
-//    if (DirEntry->FileName[0] == '.')
-//      continue;   // skip this
     for (i=0; i<gSettings.BlackListCount; i++) {
       if (StrStr(DirEntry->FileName, gSettings.BlackList[i]) != NULL) {
         Skip = TRUE;   // skip this
@@ -1049,23 +1133,19 @@ static VOID ScanDriverDir(IN CHAR16 *Path, OUT EFI_HANDLE **DriversToConnect, OU
     if (Skip) {
       continue;
     }
-    // either AptioFix, AptioFix2 or LowMemFix
-    if (StrStr(DirEntry->FileName, L"AptioFixDrv") != NULL) {
-      if (gDriversFlags.MemFixLoaded || gDriversFlags.AptioFix2Loaded) {
-        continue; //if other driver loaded then skip new one
-      }
-      gDriversFlags.AptioFixLoaded = TRUE;
-    } else if (StrStr(DirEntry->FileName, L"AptioFix2Drv") != NULL) {
-      if (gDriversFlags.MemFixLoaded || gDriversFlags.AptioFixLoaded) {
-        continue; //if other driver loaded then skip new one
-      }
-      gDriversFlags.AptioFix2Loaded = TRUE;
-    } else if (StrStr(DirEntry->FileName, L"LowMemFix") != NULL) {
-      if (gDriversFlags.AptioFixLoaded || gDriversFlags.AptioFix2Loaded) {
-        continue; //if other driver loaded then skip new one
-      }
-      gDriversFlags.MemFixLoaded = TRUE;
+
+    // either AptioMem, AptioFix* or LowMemFix exclusively
+    for (i = 0; i != ARRAY_SIZE(AptioNames); ++i)
+      if (StrStr(DirEntry->FileName, AptioNames[i]) != NULL)
+        break;
+    if (i != ARRAY_SIZE(AptioNames)) {
+      if (((UINT8) i) != AptioBlessed)
+        continue;
+      if (AptioBlessed < (UINT8) ARRAY_SIZE(AptioIndices))
+        BOOLEAN_AT_INDEX(AptioBlessed) = TRUE;
+      AptioBlessed = (UINT8) ARRAY_SIZE(AptioNames);
     }
+#undef BOOLEAN_AT_INDEX
 
     UnicodeSPrint(FileName, 512, L"%s\\%s", Path, DirEntry->FileName);
     Status = StartEFIImage(FileDevicePath(SelfLoadedImage->DeviceHandle, FileName),
@@ -1731,30 +1811,33 @@ UINT8 *APFSContainer_Support(VOID) {
     return APFSUUIDBank;
 }
 
-//System / Recovery version filler
-CHAR16 *SystemVersionPlist      = L"\\System\\Library\\CoreServices\\SystemVersion.plist";
-CHAR16 *ServerVersionPlist      = L"\\System\\Library\\CoreServices\\ServerVersion.plist";
-CHAR16 *RecoveryVersionPlist    = L"\\com.apple.recovery.boot\\SystemVersion.plist";
-CHAR16  APFSSysPlistPath[86]    = L"\\00000000-0000-0000-0000-000000000000\\System\\Library\\CoreServices\\SystemVersion.plist";
-CHAR16  APFSServerPlistPath[86] = L"\\00000000-0000-0000-0000-000000000000\\System\\Library\\CoreServices\\ServerVersion.plist";
-CHAR16  APFSRecPlistPath[58]    = L"\\00000000-0000-0000-0000-000000000000\\SystemVersion.plist";
+//System / Install / Recovery version filler
+CHAR16 *SystemVersionPlist       = L"\\System\\Library\\CoreServices\\SystemVersion.plist";
+CHAR16 *ServerVersionPlist       = L"\\System\\Library\\CoreServices\\ServerVersion.plist";
+CHAR16 *InstallVersionPlist      = L"\\macOS Install Data\\Locked Files\\Boot Files\\SystemVersion.plist";
+CHAR16 *RecoveryVersionPlist     = L"\\com.apple.recovery.boot\\SystemVersion.plist";
+CHAR16  APFSSysPlistPath[86]     = L"\\00000000-0000-0000-0000-000000000000\\System\\Library\\CoreServices\\SystemVersion.plist";
+CHAR16  APFSServerPlistPath[86]  = L"\\00000000-0000-0000-0000-000000000000\\System\\Library\\CoreServices\\ServerVersion.plist";
+CHAR16  APFSInstallPlistPath[79] = L"\\00000000-0000-0000-0000-000000000000\\com.apple.installer\\SystemVersion.plist";
+CHAR16  APFSRecPlistPath[58]     = L"\\00000000-0000-0000-0000-000000000000\\SystemVersion.plist";
   
 
 VOID SystemVersionInit(VOID)
 {
   //Plists iterators
   UINTN      SysIter            = 2;
+  UINTN      InsIter            = 1;
   UINTN      RecIter            = 1;
   UINTN      k                  = 0;
-  // If scanloader starts multiple times, then we need to free systemplits,recoveryplists variables, also
+  // If scanloader starts multiple times, then we need to free systemplists, installplists, recoveryplists variables, also
   // refresh APFSUUIDBank
-  if ((SystemPlists != NULL) || (RecoveryPlists != NULL)) {
-    if ((APFSUUIDBank != NULL) && (APFSSupport==TRUE)) {
+  if ((SystemPlists != NULL) || (InstallPlists != NULL) || (RecoveryPlists != NULL)) {
+    if ((APFSUUIDBank != NULL) && (APFSSupport == TRUE)) {
       FreePool(APFSUUIDBank);
       //Reset APFSUUIDBank counter, we will re-enumerate it
       APFSUUIDBankCounter = 0;
       APFSUUIDBank = APFSContainer_Support();
-      if (APFSUUIDBankCounter == 0){
+      if (APFSUUIDBankCounter == 0) {
         APFSSupport = FALSE;
       }
     }
@@ -1767,6 +1850,15 @@ VOID SystemVersionInit(VOID)
       FreePool(SystemPlists);
       SystemPlists = NULL;
     }
+    if (InstallPlists != NULL) {
+      k = 0;
+      while (InstallPlists[k] != NULL) {
+        InstallPlists[k] = NULL;
+        k++;
+      }
+      FreePool(InstallPlists);
+      InstallPlists = NULL;
+    }
     if (RecoveryPlists != NULL) {
       k = 0;
       while (RecoveryPlists[k] != NULL) {
@@ -1778,19 +1870,23 @@ VOID SystemVersionInit(VOID)
     }
   }
     /************************************************************************/
-  /*Allocate Memory for systemplists and recoveryplists********************/
+  /*Allocate Memory for systemplists, installplists and recoveryplists********************/
   //Check apfs support
   if (APFSSupport==TRUE) {
     SystemPlists = AllocateZeroPool((2*APFSUUIDBankCounter+3)*sizeof(CHAR16 *));//array of pointers
+    InstallPlists = AllocateZeroPool((APFSUUIDBankCounter+2)*sizeof(CHAR16 *));//array of pointers
     RecoveryPlists = AllocateZeroPool((APFSUUIDBankCounter+2)*sizeof(CHAR16 *));//array of pointers
   } else {
     SystemPlists = AllocateZeroPool(sizeof(CHAR16 *)*3);
+    InstallPlists = AllocateZeroPool(sizeof(CHAR16 *)*2);
     RecoveryPlists = AllocateZeroPool(sizeof(CHAR16 *)*2);
   }
   /* Fill it with standard paths*******************************************/
   SystemPlists[0] = SystemVersionPlist;
   SystemPlists[1] = ServerVersionPlist;
   SystemPlists[2] = NULL;
+  InstallPlists[0] = InstallVersionPlist;
+  InstallPlists[1] = NULL;
   RecoveryPlists[0] = RecoveryVersionPlist;
   RecoveryPlists[1] = NULL;
   /************************************************************************/
@@ -1798,23 +1894,29 @@ VOID SystemVersionInit(VOID)
   for (UINTN i = 0; i < APFSUUIDBankCounter+1; i++) {
       //Store UUID from bank
       CHAR16 *CurrentUUID=GuidLEToStr((EFI_GUID *)((UINT8 *)APFSUUIDBank+i*0x10));
-      //Init temp string with system/recovery APFS path
+      //Init temp string with system/install/recovery APFS path
       CHAR16 *TmpSysPlistPath = AllocateZeroPool(86*sizeof(CHAR16));
       CHAR16 *TmpServerPlistPath = AllocateZeroPool(86*sizeof(CHAR16));
+      CHAR16 *TmpInsPlistPath = AllocateZeroPool(79*sizeof(CHAR16));
       CHAR16 *TmpRecPlistPath = AllocateZeroPool(58*sizeof(CHAR16));
       StrnCpy(TmpSysPlistPath,APFSSysPlistPath,85);
       StrnCpy(TmpServerPlistPath,APFSServerPlistPath,85);
+      StrnCpy(TmpInsPlistPath,APFSInstallPlistPath,78);
       StrnCpy(TmpRecPlistPath,APFSRecPlistPath,57);
       StrnCpy(TmpSysPlistPath+1,CurrentUUID,36);
       StrnCpy(TmpServerPlistPath+1,CurrentUUID,36);
+      StrnCpy(TmpInsPlistPath+1,CurrentUUID,36);
       StrnCpy(TmpRecPlistPath+1,CurrentUUID,36);
-      //Fill SystemPlists/RecoveryPlists arrays
+      //Fill SystemPlists/InstallPlists/RecoveryPlists arrays
       SystemPlists[SysIter] = TmpSysPlistPath;
       SystemPlists[SysIter+1] = TmpServerPlistPath;
       SystemPlists[SysIter+2] = NULL;
+      InstallPlists[InsIter] = TmpInsPlistPath;
+      InstallPlists[InsIter+1] = NULL;
       RecoveryPlists[RecIter] = TmpRecPlistPath;
       RecoveryPlists[RecIter+1] = NULL;
       SysIter+=2;
+      InsIter++;
       RecIter++;
   }
 }
@@ -2000,7 +2102,8 @@ RefitMain (IN EFI_HANDLE           ImageHandle,
     Status = LoadUserSettings(SelfRootDir, L"config", &gConfigDict[0]);
       DBG("%s\\config.plist%s loaded: %r\n", OEMPath, EFI_ERROR(Status) ? L" not" : L"", Status);
   }
-  gSettings.ConfigName = PoolPrint(L"%s%s%s",
+  UnicodeSPrint(gSettings.ConfigName, 64, L"%s%s%s",
+/*  gSettings.ConfigName = PoolPrint(L"%s%s%s", */
                                    gConfigDict[0] ? L"config": L"",
                                    (gConfigDict[0] && gConfigDict[1]) ? L" + ": L"",
                                    !gConfigDict[1] ? L"": (ConfName ? ConfName : L"Load Options"));
@@ -2171,7 +2274,7 @@ RefitMain (IN EFI_HANDLE           ImageHandle,
     case CPU_MODEL_WESTMERE:// Core i7 LGA1366, Six-core, "Westmere", "Gulftown", 32nm
     case CPU_MODEL_NEHALEM_EX:// Core i7, Nehalem-Ex Xeon, "Beckton"
     case CPU_MODEL_WESTMERE_EX:// Core i7, Nehalem-Ex Xeon, "Eagleton"
-      gCPUStructure.ExternalClock = (UINT32)DivU64x32(gCPUStructure.FSBFrequency, kilo);
+      gCPUStructure.ExternalClock = (UINT32)DivU64x32(gCPUStructure.FSBFrequency + kilo -1, kilo);
       //DBG(" Read TSC ExternalClock: %d MHz\n", (INT32)(DivU64x32(gCPUStructure.ExternalClock, kilo)));
       break;
     default:
@@ -2179,7 +2282,7 @@ RefitMain (IN EFI_HANDLE           ImageHandle,
 	  
       // for sandy bridge or newer
       // to match ExternalClock 25 MHz like real mac, divide FSBFrequency by 4
-      gCPUStructure.ExternalClock = (UINT32)DivU64x32(gCPUStructure.FSBFrequency, kilo) / 4;
+      gCPUStructure.ExternalClock = ((UINT32)DivU64x32(gCPUStructure.FSBFrequency + kilo - 1, kilo) + 3) / 4;
       //DBG(" Corrected TSC ExternalClock: %d MHz\n", (INT32)(DivU64x32(gCPUStructure.ExternalClock, kilo)));
       break;
   }
@@ -2200,6 +2303,7 @@ RefitMain (IN EFI_HANDLE           ImageHandle,
       }
     }
   }
+  
 
   if (gSettings.QEMU) {
 //    UINT64 Msrflex = 0ULL;
@@ -2219,7 +2323,7 @@ RefitMain (IN EFI_HANDLE           ImageHandle,
  */
     gCPUStructure.FSBFrequency = DivU64x32(MultU64x32(gCPUStructure.CPUFrequency, 10),
                                            (gCPUStructure.MaxRatio == 0) ? 1 : gCPUStructure.MaxRatio);
-    gCPUStructure.ExternalClock = (UINT32)DivU64x32(gCPUStructure.FSBFrequency, kilo);
+    gCPUStructure.ExternalClock = (UINT32)DivU64x32(gCPUStructure.FSBFrequency + kilo - 1, kilo);
   }
 
   dropDSM = 0xFFFF; //by default we drop all OEM _DSM. They have no sense for us.
@@ -2261,7 +2365,8 @@ RefitMain (IN EFI_HANDLE           ImageHandle,
     FreePool(FirstMessage);
   }
 
-  GetListOfACPI();//###
+  GetListOfDsdts(); //only after GetUserSettings
+  GetListOfACPI(); //ssdt and other tables
 
   AfterTool = FALSE;
   gGuiIsReady = TRUE;
@@ -2310,7 +2415,11 @@ RefitMain (IN EFI_HANDLE           ImageHandle,
         FreeMenu(&OptionMenu);
       }
       gThemeChanged = FALSE;
-      DBG("Choosing theme %s\n", GlobalConfig.Theme);
+      if (GlobalConfig.Theme) {
+        DBG("Chosen theme %s\n", GlobalConfig.Theme);
+      } else {
+        DBG("Chosen embedded theme\n");
+      }
 //      DBG("initial boot-args=%a\n", gSettings.BootArgs);
       //now it is a time to set RtVariables
       SetVariablesFromNvram();

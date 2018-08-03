@@ -479,6 +479,7 @@ typedef struct {
   BOOLEAN     FastBoot;
   BOOLEAN     NeverHibernate;
   BOOLEAN     StrictHibernate;
+  BOOLEAN     RtcHibernateAware;
   FONT_TYPE   Font;
   INTN        CharWidth;
   UINTN       SelectionColor;
@@ -700,7 +701,7 @@ EFI_STATUS  ReinitRefitLib(VOID);
 EFI_STATUS  ReinitSelfLib(VOID);
 //extern EFI_STATUS FinishInitRefitLib(VOID); -- static
 VOID        PauseForKey(IN CHAR16 *Msg);
-BOOLEAN     IsEmbeddedTheme();
+BOOLEAN     IsEmbeddedTheme(VOID);
 UINT8       GetOSTypeFromPath (IN  CHAR16 *Path);
 
 VOID CreateList(OUT VOID ***ListPtr, OUT UINTN *ElementCount, IN UINTN InitialElementCount);
@@ -710,6 +711,7 @@ VOID AddListElement(IN OUT VOID ***ListPtr, IN OUT UINTN *ElementCount, IN VOID 
 VOID GetListOfThemes(VOID);
 VOID GetListOfConfigs(VOID);
 VOID GetListOfACPI(VOID);
+VOID GetListOfDsdts(VOID);
 
 // syscl - get list of inject kext(s)
 VOID GetListOfInjectKext(CHAR16 *);

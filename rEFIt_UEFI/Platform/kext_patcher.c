@@ -322,9 +322,9 @@ VOID ATIConnectorsPatch(UINT8 *Driver, UINT32 DriverSize, CHAR8 *InfoPlist, UINT
 // Rehabman corrections 2014
 //
 
-UINT8   MovlE2ToEcx[] = { 0xB9, 0xE2, 0x00, 0x00, 0x00 };
-UINT8   MovE2ToCx[]   = { 0x66, 0xB9, 0xE2, 0x00 };
-UINT8   Wrmsr[]       = { 0x0F, 0x30 };
+STATIC UINT8   MovlE2ToEcx[] = { 0xB9, 0xE2, 0x00, 0x00, 0x00 };
+STATIC UINT8   MovE2ToCx[]   = { 0x66, 0xB9, 0xE2, 0x00 };
+STATIC UINT8   Wrmsr[]       = { 0x0F, 0x30 };
 
 VOID AppleIntelCPUPMPatch(UINT8 *Driver, UINT32 DriverSize, CHAR8 *InfoPlist, UINT32 InfoPlistSize, LOADER_ENTRY *Entry)
 {
@@ -397,18 +397,18 @@ VOID AppleIntelCPUPMPatch(UINT8 *Driver, UINT32 DriverSize, CHAR8 *InfoPlist, UI
 // http://www.insanelymac.com/forum/index.php?showtopic=276066
 //
 
-UINT8   LionSearch_X64[]  = { 0x75, 0x30, 0x44, 0x89, 0xf8 };
-UINT8   LionReplace_X64[] = { 0xeb, 0x30, 0x44, 0x89, 0xf8 };
+STATIC UINT8   LionSearch_X64[]  = { 0x75, 0x30, 0x44, 0x89, 0xf8 };
+STATIC UINT8   LionReplace_X64[] = { 0xeb, 0x30, 0x44, 0x89, 0xf8 };
 
-UINT8   LionSearch_i386[]  = { 0x75, 0x3d, 0x8b, 0x75, 0x08 };
-UINT8   LionReplace_i386[] = { 0xeb, 0x3d, 0x8b, 0x75, 0x08 };
+STATIC UINT8   LionSearch_i386[]  = { 0x75, 0x3d, 0x8b, 0x75, 0x08 };
+STATIC UINT8   LionReplace_i386[] = { 0xeb, 0x3d, 0x8b, 0x75, 0x08 };
 
-UINT8   MLSearch[]  = { 0x75, 0x30, 0x89, 0xd8 };
-UINT8   MLReplace[] = { 0xeb, 0x30, 0x89, 0xd8 };
+STATIC UINT8   MLSearch[]  = { 0x75, 0x30, 0x89, 0xd8 };
+STATIC UINT8   MLReplace[] = { 0xeb, 0x30, 0x89, 0xd8 };
 
-//SunKi
-UINT8   MavSearch[]  = { 0x75, 0x2e, 0x0f, 0xb6 };
-UINT8   MavReplace[] = { 0xeb, 0x2e, 0x0f, 0xb6 };
+// SunKi: 10.9 - 10.14
+STATIC UINT8   MavSearch[]  = { 0x75, 0x2e, 0x0f, 0xb6 };
+STATIC UINT8   MavReplace[] = { 0xeb, 0x2e, 0x0f, 0xb6 };
 
 //
 // We can not rely on OSVersion global variable for OS version detection,
@@ -464,7 +464,7 @@ VOID AppleRTCPatch(UINT8 *Driver, UINT32 DriverSize, CHAR8 *InfoPlist, UINT32 In
   }
   else if (NumMav == 1) {
     Num = SearchAndReplace(Driver, DriverSize, MavSearch, sizeof(MavSearch), MavReplace, 1);
-    DBG_RT(Entry, "==> Mavericks X64: %d replaces done.\n", Num);
+    DBG_RT(Entry, "==> Mav/Yos/El/Sie/HS/Moj X64: %d replaces done.\n", Num);
   }
   else {
     DBG_RT(Entry, "==> Patterns not found - patching NOT done.\n");
@@ -508,8 +508,8 @@ VOID CheckForFakeSMC(CHAR8 *InfoPlist, LOADER_ENTRY *Entry)
 //
 // EB9D2D31-2D88-11D3-9A16-0090273F -> EB9D2D35-2D88-11D3-9A16-0090273F
 //
-UINT8   DELL_SMBIOS_GUID_Search[]  = { 0x45, 0x42, 0x39, 0x44, 0x32, 0x44, 0x33, 0x31 };
-UINT8   DELL_SMBIOS_GUID_Replace[] = { 0x45, 0x42, 0x39, 0x44, 0x32, 0x44, 0x33, 0x35 };
+STATIC UINT8   DELL_SMBIOS_GUID_Search[]  = { 0x45, 0x42, 0x39, 0x44, 0x32, 0x44, 0x33, 0x31 };
+STATIC UINT8   DELL_SMBIOS_GUID_Replace[] = { 0x45, 0x42, 0x39, 0x44, 0x32, 0x44, 0x33, 0x35 };
 
 //
 // EB9D2D31-2D88-11D3-9A16-0090273F is the standard SMBIOS Table Type 1 for
@@ -581,7 +581,7 @@ VOID SNBE_AICPUPatch(UINT8 *Driver, UINT32 DriverSize, CHAR8 *InfoPlist, UINT32 
     
     if (os_ver < AsciiOSVersionToUint64("10.10")) {
         // 10.9.x
-        UINT8 find[][3] = {
+        STATIC UINT8 find[][3] = {
             { 0x84, 0x2F, 0x01 },
             { 0x3E, 0x75, 0x3A },
             { 0x84, 0x5F, 0x01 },
@@ -590,7 +590,7 @@ VOID SNBE_AICPUPatch(UINT8 *Driver, UINT32 DriverSize, CHAR8 *InfoPlist, UINT32 
             { 0xFC, 0x02, 0x74 },
             { 0x01, 0x74, 0x58 }
         };
-        UINT8 repl[][3] = {
+        STATIC UINT8 repl[][3] = {
             { 0x85, 0x2F, 0x01 },
             { 0x3E, 0x90, 0x90 },
             { 0x85, 0x5F, 0x01 },
@@ -609,12 +609,12 @@ VOID SNBE_AICPUPatch(UINT8 *Driver, UINT32 DriverSize, CHAR8 *InfoPlist, UINT32 
         }
     } else if (os_ver < AsciiOSVersionToUint64("10.11")) {
         // 10.10.x
-        UINT8 find[][3] = {
+        STATIC UINT8 find[][3] = {
             { 0x3E, 0x75, 0x39 },
             { 0x74, 0x11, 0xB9 },
             { 0x01, 0x74, 0x56 }
         };
-        UINT8 repl[][3] = {
+        STATIC UINT8 repl[][3] = {
             { 0x3E, 0x90, 0x90 },
             { 0xEB, 0x11, 0xB9 },
             { 0x01, 0xEB, 0x56 }
@@ -627,8 +627,8 @@ VOID SNBE_AICPUPatch(UINT8 *Driver, UINT32 DriverSize, CHAR8 *InfoPlist, UINT32 
             }
         }
         
-        UINT8 find_1[] = { 0xFF, 0x0F, 0x84, 0x2D };
-        UINT8 repl_1[] = { 0xFF, 0x0F, 0x85, 0x2D };
+        STATIC UINT8 find_1[] = { 0xFF, 0x0F, 0x84, 0x2D };
+        STATIC UINT8 repl_1[] = { 0xFF, 0x0F, 0x85, 0x2D };
         if (SearchAndReplace(Driver, DriverSize, find_1, sizeof(find_1), repl_1, 0)) {
             DBG("SNBE_AICPUPatch (4/7) applied\n");
         } else {
@@ -636,24 +636,24 @@ VOID SNBE_AICPUPatch(UINT8 *Driver, UINT32 DriverSize, CHAR8 *InfoPlist, UINT32 
         }
         
         
-        UINT8 find_2[] = { 0x01, 0x00, 0x01, 0x0F, 0x84 };
-        UINT8 repl_2[] = { 0x01, 0x00, 0x01, 0x0F, 0x85 };
+        STATIC UINT8 find_2[] = { 0x01, 0x00, 0x01, 0x0F, 0x84 };
+        STATIC UINT8 repl_2[] = { 0x01, 0x00, 0x01, 0x0F, 0x85 };
         if (SearchAndReplace(Driver, DriverSize, find_2, sizeof(find_2), repl_2, 0)) {
             DBG("SNBE_AICPUPatch (5/7) applied\n");
         } else {
             DBG("SNBE_AICPUPatch (5/7) not apply\n");
         }
         
-        UINT8 find_3[] = { 0x02, 0x74, 0x0B, 0x41, 0x83, 0xFC, 0x03, 0x75, 0x22, 0xB9, 0x02, 0x06 };
-        UINT8 repl_3[] = { 0x02, 0xEB, 0x0B, 0x41, 0x83, 0xFC, 0x03, 0x75, 0x22, 0xB9, 0x02, 0x06 };
+        STATIC UINT8 find_3[] = { 0x02, 0x74, 0x0B, 0x41, 0x83, 0xFC, 0x03, 0x75, 0x22, 0xB9, 0x02, 0x06 };
+        STATIC UINT8 repl_3[] = { 0x02, 0xEB, 0x0B, 0x41, 0x83, 0xFC, 0x03, 0x75, 0x22, 0xB9, 0x02, 0x06 };
         if (SearchAndReplace(Driver, DriverSize, find_3, sizeof(find_3), repl_3, 0)) {
             DBG("SNBE_AICPUPatch (6/7) applied\n");
         } else {
             DBG("SNBE_AICPUPatch (6/7) not apply\n");
         }
         
-        UINT8 find_4[] = { 0x74, 0x0B, 0x41, 0x83, 0xFC, 0x03, 0x75, 0x11, 0xB9, 0x42, 0x06, 0x00 };
-        UINT8 repl_4[] = { 0xEB, 0x0B, 0x41, 0x83, 0xFC, 0x03, 0x75, 0x11, 0xB9, 0x42, 0x06, 0x00 };
+        STATIC UINT8 find_4[] = { 0x74, 0x0B, 0x41, 0x83, 0xFC, 0x03, 0x75, 0x11, 0xB9, 0x42, 0x06, 0x00 };
+        STATIC UINT8 repl_4[] = { 0xEB, 0x0B, 0x41, 0x83, 0xFC, 0x03, 0x75, 0x11, 0xB9, 0x42, 0x06, 0x00 };
         if (SearchAndReplace(Driver, DriverSize, find_4, sizeof(find_4), repl_4, 0)) {
             DBG("SNBE_AICPUPatch (7/7) applied\n");
         } else {
@@ -661,12 +661,12 @@ VOID SNBE_AICPUPatch(UINT8 *Driver, UINT32 DriverSize, CHAR8 *InfoPlist, UINT32 
         }
     } else if (os_ver < AsciiOSVersionToUint64("10.12")) {
         // 10.11
-        UINT8 find[][3] = {
+        STATIC UINT8 find[][3] = {
             { 0x3E, 0x75, 0x39 },
             { 0x75, 0x11, 0xB9 },
             { 0x01, 0x74, 0x5F }
         };
-        UINT8 repl[][3] = {
+        STATIC UINT8 repl[][3] = {
             { 0x3E, 0x90, 0x90 },
             { 0xEB, 0x11, 0xB9 },
             { 0x01, 0xEB, 0x5F }
@@ -679,32 +679,32 @@ VOID SNBE_AICPUPatch(UINT8 *Driver, UINT32 DriverSize, CHAR8 *InfoPlist, UINT32 
             }
         }
         
-        UINT8 find_1[] = { 0xFF, 0x0F, 0x84, 0x2D };
-        UINT8 repl_1[] = { 0xFF, 0x0F, 0x85, 0x2D };
+        STATIC UINT8 find_1[] = { 0xFF, 0x0F, 0x84, 0x2D };
+        STATIC UINT8 repl_1[] = { 0xFF, 0x0F, 0x85, 0x2D };
         if (SearchAndReplace(Driver, DriverSize, find_1, sizeof(find_1), repl_1, 0)) {
             DBG("SNBE_AICPUPatch (4/7) applied\n");
         } else {
             DBG("SNBE_AICPUPatch (4/7) not apply\n");
         }
         
-        UINT8 find_2[] = { 0x01, 0x00, 0x01, 0x0F, 0x84 };
-        UINT8 repl_2[] = { 0x01, 0x00, 0x01, 0x0F, 0x85 };
+        STATIC UINT8 find_2[] = { 0x01, 0x00, 0x01, 0x0F, 0x84 };
+        STATIC UINT8 repl_2[] = { 0x01, 0x00, 0x01, 0x0F, 0x85 };
         if (SearchAndReplace(Driver, DriverSize, find_2, sizeof(find_2), repl_2, 0)) {
             DBG("SNBE_AICPUPatch (5/7) applied\n");
         } else {
             DBG("SNBE_AICPUPatch (5/7) not apply\n");
         }
         
-        UINT8 find_3[] = { 0xC9, 0x74, 0x16, 0x0F, 0x32, 0x48, 0x25, 0xFF, 0x0F, 0x00, 0x00, 0x48 };
-        UINT8 repl_3[] = { 0xC9, 0xEB, 0x16, 0x0F, 0x32, 0x48, 0x25, 0xFF, 0x0F, 0x00, 0x00, 0x48 };
+        STATIC UINT8 find_3[] = { 0xC9, 0x74, 0x16, 0x0F, 0x32, 0x48, 0x25, 0xFF, 0x0F, 0x00, 0x00, 0x48 };
+        STATIC UINT8 repl_3[] = { 0xC9, 0xEB, 0x16, 0x0F, 0x32, 0x48, 0x25, 0xFF, 0x0F, 0x00, 0x00, 0x48 };
         if (SearchAndReplace(Driver, DriverSize, find_3, sizeof(find_3), repl_3, 0)) {
             DBG("SNBE_AICPUPatch (6/7) applied\n");
         } else {
             DBG("SNBE_AICPUPatch (6/7) not apply\n");
         }
         
-        UINT8 find_4[] = { 0xC9, 0x74, 0x0C, 0x0F, 0x32, 0x83, 0xE0, 0x1F, 0x42, 0x89, 0x44, 0x3B };
-        UINT8 repl_4[] = { 0xC9, 0xEB, 0x0C, 0x0F, 0x32, 0x83, 0xE0, 0x1F, 0x42, 0x89, 0x44, 0x3B };
+        STATIC UINT8 find_4[] = { 0xC9, 0x74, 0x0C, 0x0F, 0x32, 0x83, 0xE0, 0x1F, 0x42, 0x89, 0x44, 0x3B };
+        STATIC UINT8 repl_4[] = { 0xC9, 0xEB, 0x0C, 0x0F, 0x32, 0x83, 0xE0, 0x1F, 0x42, 0x89, 0x44, 0x3B };
         if (SearchAndReplace(Driver, DriverSize, find_4, sizeof(find_4), repl_4, 0)) {
             DBG("SNBE_AICPUPatch (7/7) applied\n");
         } else {
@@ -712,12 +712,12 @@ VOID SNBE_AICPUPatch(UINT8 *Driver, UINT32 DriverSize, CHAR8 *InfoPlist, UINT32 
         }
     } else if (os_ver < AsciiOSVersionToUint64("10.13")) {
         // 10.12
-        UINT8 find[][3] = {
+        STATIC UINT8 find[][3] = {
             { 0x01, 0x74, 0x61 },
             { 0x3E, 0x75, 0x38 },
             { 0x75, 0x11, 0xB9 }
         };
-        UINT8 repl[][3] = {
+        STATIC UINT8 repl[][3] = {
             { 0x01, 0xEB, 0x61 },
             { 0x3E, 0x90, 0x90 },
             { 0xEB, 0x11, 0xB9 }
@@ -730,45 +730,45 @@ VOID SNBE_AICPUPatch(UINT8 *Driver, UINT32 DriverSize, CHAR8 *InfoPlist, UINT32 
             }
         }
         
-        UINT8 find_1[] = { 0xFF, 0x0F, 0x84, 0x2D };
-        UINT8 repl_1[] = { 0xFF, 0x0F, 0x85, 0x2D };
+        STATIC UINT8 find_1[] = { 0xFF, 0x0F, 0x84, 0x2D };
+        STATIC UINT8 repl_1[] = { 0xFF, 0x0F, 0x85, 0x2D };
         if (SearchAndReplace(Driver, DriverSize, find_1, sizeof(find_1), repl_1, 0)) {
             DBG("SNBE_AICPUPatch (4/7) applied\n");
         } else {
             DBG("SNBE_AICPUPatch (4/7) not apply\n");
         }
 
-        UINT8 find_2[] = { 0x01, 0x00, 0x01, 0x0F, 0x84 };
-        UINT8 repl_2[] = { 0x01, 0x00, 0x01, 0x0F, 0x85 };
+        STATIC UINT8 find_2[] = { 0x01, 0x00, 0x01, 0x0F, 0x84 };
+        STATIC UINT8 repl_2[] = { 0x01, 0x00, 0x01, 0x0F, 0x85 };
         if (SearchAndReplace(Driver, DriverSize, find_2, sizeof(find_2), repl_2, 0)) {
             DBG("SNBE_AICPUPatch (5/7) applied\n");
         } else {
             DBG("SNBE_AICPUPatch (5/7) not apply\n");
         }
         
-        UINT8 find_3[] = { 0xC9, 0x74, 0x15, 0x0F, 0x32, 0x25, 0xFF, 0x0F, 0x00, 0x00, 0x48 };
-        UINT8 repl_3[] = { 0xC9, 0xEB, 0x15, 0x0F, 0x32, 0x25, 0xFF, 0x0F, 0x00, 0x00, 0x48 };
+        STATIC UINT8 find_3[] = { 0xC9, 0x74, 0x15, 0x0F, 0x32, 0x25, 0xFF, 0x0F, 0x00, 0x00, 0x48 };
+        STATIC UINT8 repl_3[] = { 0xC9, 0xEB, 0x15, 0x0F, 0x32, 0x25, 0xFF, 0x0F, 0x00, 0x00, 0x48 };
         if (SearchAndReplace(Driver, DriverSize, find_3, sizeof(find_3), repl_3, 0)) {
             DBG("SNBE_AICPUPatch (6/7) applied\n");
         } else {
             DBG("SNBE_AICPUPatch (6/7) not apply\n");
         }
 
-        UINT8 find_4[] = { 0xC9, 0x74, 0x0C, 0x0F, 0x32, 0x83, 0xE0, 0x1F, 0x42, 0x89, 0x44, 0x3B };
-        UINT8 repl_4[] = { 0xC9, 0xEB, 0x0C, 0x0F, 0x32, 0x83, 0xE0, 0x1F, 0x42, 0x89, 0x44, 0x3B };
+        STATIC UINT8 find_4[] = { 0xC9, 0x74, 0x0C, 0x0F, 0x32, 0x83, 0xE0, 0x1F, 0x42, 0x89, 0x44, 0x3B };
+        STATIC UINT8 repl_4[] = { 0xC9, 0xEB, 0x0C, 0x0F, 0x32, 0x83, 0xE0, 0x1F, 0x42, 0x89, 0x44, 0x3B };
         if (SearchAndReplace(Driver, DriverSize, find_4, sizeof(find_4), repl_4, 0)) {
             DBG("SNBE_AICPUPatch (7/7) applied\n");
         } else {
             DBG("SNBE_AICPUPatch (7/7) not apply\n");
         }
-    } else if (os_ver < AsciiOSVersionToUint64("10.14")) {
-        // 10.13
-        UINT8 find[][3] = {
+    } else if (os_ver < AsciiOSVersionToUint64("10.15")) {
+        // 10.13/10.14
+        STATIC UINT8 find[][3] = {
             { 0x01, 0x74, 0x61 },
             { 0x3E, 0x75, 0x38 },
             { 0x75, 0x11, 0xB9 }
         };
-        UINT8 repl[][3] = {
+        STATIC UINT8 repl[][3] = {
             { 0x01, 0xEB, 0x61 },
             { 0x3E, 0x90, 0x90 },
             { 0xEB, 0x11, 0xB9 }
@@ -781,32 +781,32 @@ VOID SNBE_AICPUPatch(UINT8 *Driver, UINT32 DriverSize, CHAR8 *InfoPlist, UINT32 
             }
         }
         
-        UINT8 find_1[] = { 0xFF, 0x0F, 0x84, 0xD3 };
-        UINT8 repl_1[] = { 0xFF, 0x0F, 0x85, 0xD3 };
+        STATIC UINT8 find_1[] = { 0xFF, 0x0F, 0x84, 0xD3 };
+        STATIC UINT8 repl_1[] = { 0xFF, 0x0F, 0x85, 0xD3 };
         if (SearchAndReplace(Driver, DriverSize, find_1, sizeof(find_1), repl_1, 0)) {
             DBG("SNBE_AICPUPatch (4/7) applied\n");
         } else {
             DBG("SNBE_AICPUPatch (4/7) not apply\n");
         }
         
-        UINT8 find_2[] = { 0x01, 0x00, 0x01, 0x0F, 0x84 };
-        UINT8 repl_2[] = { 0x01, 0x00, 0x01, 0x0F, 0x85 };
+        STATIC UINT8 find_2[] = { 0x01, 0x00, 0x01, 0x0F, 0x84 };
+        STATIC UINT8 repl_2[] = { 0x01, 0x00, 0x01, 0x0F, 0x85 };
         if (SearchAndReplace(Driver, DriverSize, find_2, sizeof(find_2), repl_2, 0)) {
             DBG("SNBE_AICPUPatch (5/7) applied\n");
         } else {
             DBG("SNBE_AICPUPatch (5/7) not apply\n");
         }
         
-        UINT8 find_3[] = { 0xC9, 0x74, 0x14, 0x0F, 0x32, 0x25, 0xFF, 0x0F, 0x00, 0x00, 0x6B };
-        UINT8 repl_3[] = { 0xC9, 0xEB, 0x14, 0x0F, 0x32, 0x25, 0xFF, 0x0F, 0x00, 0x00, 0x6B};
+        STATIC UINT8 find_3[] = { 0xC9, 0x74, 0x14, 0x0F, 0x32, 0x25, 0xFF, 0x0F, 0x00, 0x00, 0x6B };
+        STATIC UINT8 repl_3[] = { 0xC9, 0xEB, 0x14, 0x0F, 0x32, 0x25, 0xFF, 0x0F, 0x00, 0x00, 0x6B};
         if (SearchAndReplace(Driver, DriverSize, find_3, sizeof(find_3), repl_3, 0)) {
             DBG("SNBE_AICPUPatch (6/7) applied\n");
         } else {
             DBG("SNBE_AICPUPatch (6/7) not apply\n");
         }
         
-        UINT8 find_4[] = { 0xC9, 0x74, 0x0C, 0x0F, 0x32, 0x83, 0xE0, 0x1F, 0x42, 0x89, 0x44, 0x3B };
-        UINT8 repl_4[] = { 0xC9, 0xEB, 0x0C, 0x0F, 0x32, 0x83, 0xE0, 0x1F, 0x42, 0x89, 0x44, 0x3B };
+        STATIC UINT8 find_4[] = { 0xC9, 0x74, 0x0C, 0x0F, 0x32, 0x83, 0xE0, 0x1F, 0x42, 0x89, 0x44, 0x3B };
+        STATIC UINT8 repl_4[] = { 0xC9, 0xEB, 0x0C, 0x0F, 0x32, 0x83, 0xE0, 0x1F, 0x42, 0x89, 0x44, 0x3B };
         if (SearchAndReplace(Driver, DriverSize, find_4, sizeof(find_4), repl_4, 0)) {
             DBG("SNBE_AICPUPatch (7/7) applied\n");
         } else {
@@ -825,37 +825,51 @@ VOID SNBE_AICPUPatch(UINT8 *Driver, UINT32 DriverSize, CHAR8 *InfoPlist, UINT32 
 // BDWE_IOPCIPatch implemented by syscl
 // Fix Broadwell-E IOPCIFamily issue
 //
-// find: 0x48, 0x81, 0xFB, 0x00, 0x00, 0x00, 0x40
-// repl: 0x48, 0x81, 0xFB, 0x00, 0x00, 0x00, 0x80
-//
-UINT8 BroadwellE_IOPCI_Find[] = { 0x48, 0x81, 0xFB, 0x00, 0x00, 0x00, 0x40 };
-UINT8 BroadwellE_IOPCI_Repl[] = { 0x48, 0x81, 0xFB, 0x00, 0x00, 0x00, 0x80 };
+
+// El Capitan
+STATIC UINT8   BroadwellE_IOPCI_Find_El[] = { 0x48, 0x81, 0xF9, 0x01, 0x00, 0x00, 0x40 };
+STATIC UINT8   BroadwellE_IOPCI_Repl_El[] = { 0x48, 0x81, 0xF9, 0x01, 0x00, 0x00, 0x80 };
+
+// Sierra/High Sierra
+STATIC UINT8   BroadwellE_IOPCI_Find_SieHS[] = { 0x48, 0x81, 0xFB, 0x00, 0x00, 0x00, 0x40 };
+STATIC UINT8   BroadwellE_IOPCI_Repl_SieHS[] = { 0x48, 0x81, 0xFB, 0x00, 0x00, 0x00, 0x80 };
+
+// Mojave
+STATIC UINT8   BroadwellE_IOPCI_Find_Moj[] = { 0x48, 0x3D, 0x00, 0x00, 0x00, 0x40 };
+STATIC UINT8   BroadwellE_IOPCI_Repl_Moj[] = { 0x48, 0x3D, 0x00, 0x00, 0x00, 0x80 };
 
 VOID BDWE_IOPCIPatch(UINT8 *Driver, UINT32 DriverSize, CHAR8 *InfoPlist, UINT32 InfoPlistSize, LOADER_ENTRY *Entry)
 {
-    UINTN count = 0;
+  UINTN count = 0;
+  UINT64 os_ver = AsciiOSVersionToUint64(Entry->OSVersion);
     
-    DBG_RT(Entry, "\nBDWE_IOPCIPatch: driverAddr = %x, driverSize = %x\n", Driver, DriverSize);
-    if (Entry->KernelAndKextPatches->KPDebug) {
-        ExtractKextBundleIdentifier(InfoPlist);
-    }
+  DBG_RT(Entry, "\nBDWE_IOPCIPatch: driverAddr = %x, driverSize = %x\n", Driver, DriverSize);
+  if (Entry->KernelAndKextPatches->KPDebug) {
+    ExtractKextBundleIdentifier(InfoPlist);
+  }
     
-    DBG_RT(Entry, "Kext: %a\n", gKextBundleIdentifier);
-    //
-    // now, let's patch it!
-    //
-    count = SearchAndReplace(Driver, DriverSize, BroadwellE_IOPCI_Find, sizeof(BroadwellE_IOPCI_Find), BroadwellE_IOPCI_Repl, 0);
+  DBG_RT(Entry, "Kext: %a\n", gKextBundleIdentifier);
+  //
+  // now, let's patch it!
+  //
+
+  if (os_ver < AsciiOSVersionToUint64("10.12")) {
+    count = SearchAndReplace(Driver, DriverSize, BroadwellE_IOPCI_Find_El, sizeof(BroadwellE_IOPCI_Find_El), BroadwellE_IOPCI_Repl_El, 0);
+  } else if (os_ver < AsciiOSVersionToUint64("10.14")) {
+    count = SearchAndReplace(Driver, DriverSize, BroadwellE_IOPCI_Find_SieHS, sizeof(BroadwellE_IOPCI_Find_SieHS), BroadwellE_IOPCI_Repl_SieHS, 0);
+  } else {
+    count = SearchAndReplace(Driver, DriverSize, BroadwellE_IOPCI_Find_Moj, sizeof(BroadwellE_IOPCI_Find_Moj), BroadwellE_IOPCI_Repl_Moj, 0);
+  }
+  
+  if (count) {
+    DBG_RT(Entry, "==> IOPCIFamily: %d replaces done.\n", count);
+  } else {
+    DBG_RT(Entry, "==> Patterns not found - patching NOT done.\n");
+  }
     
-    if (count) {
-        DBG_RT(Entry, "==> IOPCIFamily: %d replaces done.\n", count);
-    }
-    else {
-        DBG_RT(Entry, "==> Patterns not found - patching NOT done.\n");
-    }
-    
-    if (Entry->KernelAndKextPatches->KPDebug) {
-        gBS->Stall(5000000);
-    }
+  if (Entry->KernelAndKextPatches->KPDebug) {
+    gBS->Stall(5000000);
+  }
 }
 
 
@@ -1296,15 +1310,15 @@ VOID PatchPrelinkedKexts(LOADER_ENTRY *Entry)
 //
 VOID PatchLoadedKexts(LOADER_ENTRY *Entry)
 {
-	DTEntry             MMEntry;
+  DTEntry             MMEntry;
   _BooterKextFileInfo *KextFileInfo;
   CHAR8               *PropName;
   _DeviceTreeBuffer   *PropEntry;
   CHAR8               SavedValue;
   CHAR8               *InfoPlist;
-	struct OpaqueDTPropertyIterator OPropIter;
-	DTPropertyIterator	PropIter = &OPropIter;
-	//UINTN               DbgCount = 0;
+  struct OpaqueDTPropertyIterator OPropIter;
+  DTPropertyIterator	PropIter = &OPropIter;
+  //UINTN               DbgCount = 0;
   
   
   DBG(L"\nPatchLoadedKexts ... dtRoot = %p\n", dtRoot);
